@@ -5,22 +5,34 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import Header from '../Components/Header.js';
 import Footer from '../Components/Footer.js';
-
-const timeTables = [
-  { id: '1', title: 'Time Table1' },
-  { id: '2', title: 'Time Table2' },
-  { id: '3', title: 'Time Table3' },
-];
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const HomeScreen = ({ navigation }) => {
+  const [timeTables, setTimeTables] = React.useState([]);
+
+  React.useEffect(() => {
+    const loadTimeTables = async () => {
+      const storedTimeTables = await AsyncStorage.getItem('timeTables');
+      if (storedTimeTables) {
+        setTimeTables(JSON.parse(storedTimeTables));
+      }
+    };
+
+    loadTimeTables();
+  }, []);
+
+  const handleEdit = (index) => {
+    navigation.navigate('EditTimeTable', { index });
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: 'white' }}>
-      <Header />
+      <Header screenName="Home" />
 
       <FlatList
         data={timeTables}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
+        keyExtractor={(item, index) => index.toString()}
+        renderItem={({ item, index }) => (
           <View
             style={{
               flexDirection: 'row',
@@ -39,7 +51,7 @@ const HomeScreen = ({ navigation }) => {
             <View style={{ flexDirection: 'row' }}>
               <TouchableOpacity
                 style={{ marginRight: 10 }}
-                onPress={() => navigation.navigate('EditTimeTable')}
+                onPress={() => handleEdit(index)}
               >
                 <Ionicons name="create-outline" size={24} color="black" />
               </TouchableOpacity>

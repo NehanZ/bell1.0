@@ -1,10 +1,10 @@
 import React from 'react';
-import { View, TouchableOpacity } from 'react-native';
+import { Text, View, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 
-const Header = () => {
+const Header = ({screenName}) => {
   const navigation = useNavigation();
 
   return (
@@ -19,7 +19,13 @@ const Header = () => {
           <Ionicons name="menu" size={30} color="white" />
         </TouchableOpacity>
 
-        <TouchableOpacity>
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold', paddingTop: 5 }}>
+            {screenName}
+          </Text>
+        </View>
+
+        <TouchableOpacity onPress={() => navigation.navigate("CreateTimeTable")}>
           <Ionicons name="add-circle-outline" size={30} color="white" />
         </TouchableOpacity>
       </View>
