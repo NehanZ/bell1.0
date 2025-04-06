@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Platform, StatusBar } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Platform, StatusBar, TextInput } from "react-native";
 import Header from "./Header.js";
 import Footer from "./Footer.js";
 import RNPickerSelect from 'react-native-picker-select';
@@ -8,27 +8,21 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const EditTimeTable = ({ route, navigation }) => {
     const { index } = route.params;
 
-    const [days, setDays] = useState("MON - FRI");
-    const [time, setTime] = useState("P1 8.00-8.30");
-    const [tone, setTone] = useState("TONE 1");
+    const [days, setDays] = useState("DAY1");
+    const [timePeriods, setTimePeriods] = useState([{ start: "8.00", end: "8.30" }]); // Initially one time period
+    const [tone, setTone] = useState("TONE1");
     const [duration, setDuration] = useState("30s");
 
     const daysOptions = [
-        { label: 'MON - FRI', value: 'MON - FRI' },
-        { label: 'SAT - SUN', value: 'SAT - SUN' },
-        { label: 'MON - SAT', value: 'MON - SAT' },
-    ];
-
-    const timeOptions = [
-        { label: 'P1 8.00-8.30', value: 'P1 8.00-8.30' },
-        { label: 'P2 9.00-9.30', value: 'P2 9.00-9.30' },
-        { label: 'P3 10.00-10.30', value: 'P3 10.00-10.30' },
+        { label: "MON - FRI", value: "DAY1" },
+        { label: "SAT - SUN", value: "DAY2" },
+        { label: "MON - SAT", value: "DAY3" },
     ];
 
     const toneOptions = [
-        { label: 'TONE 1', value: 'TONE 1' },
-        { label: 'TONE 2', value: 'TONE 2' },
-        { label: 'TONE 3', value: 'TONE 3' },
+        { label: "TONE 1", value: "TONE1" },
+        { label: "TONE 2", value: "TONE2" },
+        { label: "TONE 3", value: "TONE3" },
     ];
 
     const durationOptions = [
@@ -36,6 +30,24 @@ const EditTimeTable = ({ route, navigation }) => {
         { label: '60s', value: '60s' },
         { label: '90s', value: '90s' },
     ];
+
+    // Handle adding a new time period
+    const addTimePeriod = () => {
+        setTimePeriods([...timePeriods, { start: "", end: "" }]);
+    };
+
+    // Handle removing a time period
+    const removeTimePeriod = (index) => {
+        const newTimePeriods = timePeriods.filter((_, i) => i !== index);
+        setTimePeriods(newTimePeriods);
+    };
+
+    // Handle time period input changes
+    const handleTimeChange = (index, field, value) => {
+        const newTimePeriods = [...timePeriods];
+        newTimePeriods[index][field] = value;
+        setTimePeriods(newTimePeriods);
+    };
 
     useEffect(() => {
         const loadTimeTable = async () => {
@@ -45,7 +57,7 @@ const EditTimeTable = ({ route, navigation }) => {
                 const timeTable = timeTables[index];
                 if (timeTable) {
                     setDays(timeTable.days);
-                    setTime(timeTable.time);
+                    setTimePeriods(timeTable.timePeriods); // Load timePeriods
                     setTone(timeTable.tone);
                     setDuration(timeTable.duration);
                 }
@@ -58,7 +70,7 @@ const EditTimeTable = ({ route, navigation }) => {
         const storedTimeTables = await AsyncStorage.getItem('timeTables');
         if (storedTimeTables) {
             const timeTables = JSON.parse(storedTimeTables);
-            timeTables[index] = { days, time, tone, duration };
+            timeTables[index] = { days, timePeriods, tone, duration };
             await AsyncStorage.setItem('timeTables', JSON.stringify(timeTables));
             navigation.goBack();
         }
@@ -88,14 +100,36 @@ const EditTimeTable = ({ route, navigation }) => {
                     />
                 </View>
 
-                <View style={styles.row}>
-                    <Text style={styles.label}>TIME</Text>
-                    <RNPickerSelect
-                        onValueChange={(value) => setTime(value)}
-                        items={timeOptions}
-                        value={time}
-                        style={pickerSelectStyles}
-                    />
+                <View style={styles.timebox}>
+                    {timePeriods.map((timePeriod, index) => (
+                        <View key={index} style={styles.row}>
+                            <Text style={styles.label}>TIME</Text>
+                            <View style={styles.timePeriodRow}>
+                                <TextInput
+                                    style={styles.timeInput}
+                                    value={timePeriod.start}
+                                    placeholder="Start Time"
+                                    onChangeText={(value) => handleTimeChange(index, "start", value)}
+                                />
+                                <Text style={styles.label}>-</Text>
+                                <TextInput
+                                    style={styles.timeInput}
+                                    value={timePeriod.end}
+                                    placeholder="End Time"
+                                    onChangeText={(value) => handleTimeChange(index, "end", value)}
+                                />
+                                {timePeriods.length > 1 && (
+                                    <TouchableOpacity onPress={() => removeTimePeriod(index)}>
+                                        <Text style={styles.deletePeriodText}>Remove</Text>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                        </View>
+                    ))}
+
+                    <TouchableOpacity style={styles.addButton} onPress={addTimePeriod}>
+                        <Text style={styles.buttonText}>+ ADD TIME PERIOD</Text>
+                    </TouchableOpacity>
                 </View>
 
                 <View style={styles.row}>
@@ -135,7 +169,7 @@ const EditTimeTable = ({ route, navigation }) => {
 const pickerSelectStyles = StyleSheet.create({
     inputAndroid: {
         backgroundColor: "#C4C4C4",
-        borderRadius: 15,
+        borderRadius: 6,
         minWidth: 200,
         textAlign: "center",
     },
@@ -166,6 +200,26 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: "bold",
     },
+    timePeriodRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        flex: 1,
+        justifyContent: "space-between",
+    },
+    timeInput: {
+        backgroundColor: "#C4C4C4",
+        borderRadius: 6,
+        minWidth: 80,
+        textAlign: "center",
+        marginHorizontal: 5,
+    },
+    addButton: {
+        backgroundColor: "#167573",
+        padding: 10,
+        borderRadius: 6,
+        alignItems: "center",
+        margin: 10,
+    },
     buttonContainer: {
         flexDirection: "row",
         justifyContent: "space-between",
@@ -192,6 +246,17 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: "bold",
     },
+    deletePeriodText: {
+        color: "red",
+        fontWeight: "bold",
+        marginLeft: 10,
+    },
+    timebox: {
+        backgroundColor: "#becccc",
+        borderRadius: 15,
+        padding: 10,
+        marginBottom: 20,
+    }
 });
 
 export default EditTimeTable;

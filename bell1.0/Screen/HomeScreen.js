@@ -45,7 +45,7 @@ const HomeScreen = ({ navigation }) => {
             }}
           >
             <Text style={{ fontSize: 16, fontWeight: 'bold', color: 'black' }}>
-              {item.title}
+              Table {index + 1}
             </Text>
 
             <View style={{ flexDirection: 'row' }}>
