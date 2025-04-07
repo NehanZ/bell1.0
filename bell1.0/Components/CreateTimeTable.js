@@ -1,15 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Platform, StatusBar, TextInput } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Header from "./Header.js";
 import Footer from "./Footer.js";
-import RNPickerSelect from 'react-native-picker-select';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import RNPickerSelect from "react-native-picker-select";
 
-const EditTimeTable = ({ route, navigation }) => {
-    const { index } = route.params;
-
+const CreateTimeTable = ({ navigation }) => {
     const [days, setDays] = useState("DAY1");
-    const [timePeriods, setTimePeriods] = useState([{ start: "", end: "" }]);
+    const [timePeriods, setTimePeriods] = useState([{ start: "8.00", end: "8.30" }]);
     const [tone, setTone] = useState("TONE1");
     const [duration, setDuration] = useState("30s");
 
@@ -26,9 +24,9 @@ const EditTimeTable = ({ route, navigation }) => {
     ];
 
     const durationOptions = [
-        { label: '30s', value: '30s' },
-        { label: '60s', value: '60s' },
-        { label: '90s', value: '90s' },
+        { label: "30s", value: "30s" },
+        { label: "60s", value: "60s" },
+        { label: "90s", value: "90s" },
     ];
 
     const addTimePeriod = () => {
@@ -46,60 +44,46 @@ const EditTimeTable = ({ route, navigation }) => {
         setTimePeriods(newTimePeriods);
     };
 
-    useEffect(() => {
-        const loadTimeTable = async () => {
-            const storedTimeTables = await AsyncStorage.getItem('timeTables');
-            if (storedTimeTables) {
-                const timeTables = JSON.parse(storedTimeTables);
-                const timeTable = timeTables[index];
-                if (timeTable) {
-                    setDays(timeTable.days);
-                    setTimePeriods(timeTable.timePeriods);
-                    setTone(timeTable.tone);
-                    setDuration(timeTable.duration);
-                }
-            }
-        };
-        loadTimeTable();
-    }, [index]);
+    const saveNewTimeTable = async () => {
+        try {
+            const newTimeTable = {
+                days,
+                timePeriods,
+                tone,
+                duration,
+            };
 
-    const handleSave = async () => {
-        const storedTimeTables = await AsyncStorage.getItem('timeTables');
-        const schedule = timePeriods.map((period, index) => ({
-            name: `Period ${index + 1}`,
-            duration: calculateDuration(period.start, period.end),
-        }));
-    
-        if (storedTimeTables) {
-            const timeTables = JSON.parse(storedTimeTables);
-            timeTables[index] = { days, schedule, tone, duration };
-            await AsyncStorage.setItem('timeTables', JSON.stringify(timeTables));
+            const savedTimeTables = await AsyncStorage.getItem("timeTables");
+            let timeTables = savedTimeTables ? JSON.parse(savedTimeTables) : [];
+
+            timeTables.push(newTimeTable);
+
+            await AsyncStorage.setItem("timeTables", JSON.stringify(timeTables));
+
             navigation.goBack();
-        }
-    };
-    
-    const handleDelete = async () => {
-        const storedTimeTables = await AsyncStorage.getItem('timeTables');
-        if (storedTimeTables) {
-            const timeTables = JSON.parse(storedTimeTables);
-            timeTables.splice(index, 1);
-            await AsyncStorage.setItem('timeTables', JSON.stringify(timeTables));
-            navigation.goBack();
+        } catch (error) {
+            console.error("Error saving new timetable:", error);
         }
     };
 
-    const calculateDuration = (start, end) => {
-        const [startHour, startMinute] = start.split('.').map(Number);
-        const [endHour, endMinute] = end.split('.').map(Number);
-        const startTime = startHour * 60 + startMinute;
-        const endTime = endHour * 60 + endMinute;
-        return (endTime - startTime) * 60;
-    };
+    const deleteTimeTable = async () => {
+        try {
+            const savedTimeTables = await AsyncStorage.getItem("timeTables");
+            let timeTables = savedTimeTables ? JSON.parse(savedTimeTables) : [];
 
+            const updatedTimeTables = timeTables.filter(item => item.days !== days);
+            
+            await AsyncStorage.setItem("timeTables", JSON.stringify(updatedTimeTables));
+
+            navigation.goBack();
+        } catch (error) {
+            console.error("Error deleting timetable:", error);
+        }
+    };
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <Header screenName="EditTimeTable" />
+            <Header screenName="CreateTimeTable" />
             <View style={styles.container}>
                 <View style={styles.row}>
                     <Text style={styles.label}>DAYS</Text>
@@ -112,7 +96,7 @@ const EditTimeTable = ({ route, navigation }) => {
                 </View>
 
                 <View style={styles.timebox}>
-                {timePeriods?.map((timePeriod, index) => (
+                    {timePeriods.map((timePeriod, index) => (
                         <View key={index} style={styles.row}>
                             <Text style={styles.label}>TIME</Text>
                             <View style={styles.timePeriodRow}>
@@ -144,15 +128,15 @@ const EditTimeTable = ({ route, navigation }) => {
                 </View>
 
                 <View style={styles.row}>
-                    <Text style={styles.label}>TONE</Text>
-                    <RNPickerSelect
-                        onValueChange={(value) => setTone(value)}
-                        items={toneOptions}
-                        value={tone}
-                        style={pickerSelectStyles}
-                    />
+                        <Text style={styles.label}>TONE</Text>
+                        <RNPickerSelect
+                            onValueChange={(value) => setTone(value)}
+                            items={toneOptions}
+                            value={tone}
+                            style={pickerSelectStyles}
+                        />
                 </View>
-
+                
                 <View style={styles.row}>
                     <Text style={styles.label}>DURATION</Text>
                     <RNPickerSelect
@@ -164,10 +148,10 @@ const EditTimeTable = ({ route, navigation }) => {
                 </View>
 
                 <View style={styles.buttonContainer}>
-                    <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
+                    <TouchableOpacity style={styles.deleteButton} onPress={deleteTimeTable}>
                         <Text style={styles.buttonText}>DELETE</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+                    <TouchableOpacity style={styles.saveButton} onPress={saveNewTimeTable}>
                         <Text style={styles.buttonText}>SAVE</Text>
                     </TouchableOpacity>
                 </View>
@@ -270,4 +254,4 @@ const styles = StyleSheet.create({
     }
 });
 
-export default EditTimeTable;
+export default CreateTimeTable;
