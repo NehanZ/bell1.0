@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -23,6 +23,20 @@ const HomeScreen = ({ navigation }) => {
 
   const handleEdit = (index) => {
     navigation.navigate('EditTimeTable', { index });
+  };
+
+  const handleRun = (index) => {
+    const item = timeTables[index];
+    if (!item.schedule || item.schedule.length === 0) {
+        Alert.alert("No schedule found for this time table.");
+        return;
+    }
+
+    navigation.navigate('TimeMachine', {
+        schedule: item.schedule,
+        selectedMusic: item.tone,
+        days: item.days,
+    });
   };
 
   return (
@@ -55,8 +69,10 @@ const HomeScreen = ({ navigation }) => {
               >
                 <Ionicons name="create-outline" size={24} color="black" />
               </TouchableOpacity>
-
-              <TouchableOpacity>
+              <TouchableOpacity
+                style={{ marginRight: 10 }}
+                onPress={() => handleRun(index)}
+              >
                 <Ionicons name="play-circle-outline" size={24} color="black" />
               </TouchableOpacity>
             </View>

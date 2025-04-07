@@ -9,7 +9,7 @@ const EditTimeTable = ({ route, navigation }) => {
     const { index } = route.params;
 
     const [days, setDays] = useState("DAY1");
-    const [timePeriods, setTimePeriods] = useState([{ start: "8.00", end: "8.30" }]); // Initially one time period
+    const [timePeriods, setTimePeriods] = useState([{ start: "", end: "" }]);
     const [tone, setTone] = useState("TONE1");
     const [duration, setDuration] = useState("30s");
 
@@ -31,18 +31,15 @@ const EditTimeTable = ({ route, navigation }) => {
         { label: '90s', value: '90s' },
     ];
 
-    // Handle adding a new time period
     const addTimePeriod = () => {
         setTimePeriods([...timePeriods, { start: "", end: "" }]);
     };
 
-    // Handle removing a time period
     const removeTimePeriod = (index) => {
         const newTimePeriods = timePeriods.filter((_, i) => i !== index);
         setTimePeriods(newTimePeriods);
     };
 
-    // Handle time period input changes
     const handleTimeChange = (index, field, value) => {
         const newTimePeriods = [...timePeriods];
         newTimePeriods[index][field] = value;
@@ -57,7 +54,7 @@ const EditTimeTable = ({ route, navigation }) => {
                 const timeTable = timeTables[index];
                 if (timeTable) {
                     setDays(timeTable.days);
-                    setTimePeriods(timeTable.timePeriods); // Load timePeriods
+                    setTimePeriods(timeTable.timePeriods);
                     setTone(timeTable.tone);
                     setDuration(timeTable.duration);
                 }
@@ -68,14 +65,19 @@ const EditTimeTable = ({ route, navigation }) => {
 
     const handleSave = async () => {
         const storedTimeTables = await AsyncStorage.getItem('timeTables');
+        const schedule = timePeriods.map((period, index) => ({
+            name: `Period ${index + 1}`,
+            duration: calculateDuration(period.start, period.end),
+        }));
+    
         if (storedTimeTables) {
             const timeTables = JSON.parse(storedTimeTables);
-            timeTables[index] = { days, timePeriods, tone, duration };
+            timeTables[index] = { days, schedule, tone, duration };
             await AsyncStorage.setItem('timeTables', JSON.stringify(timeTables));
             navigation.goBack();
         }
     };
-
+    
     const handleDelete = async () => {
         const storedTimeTables = await AsyncStorage.getItem('timeTables');
         if (storedTimeTables) {
@@ -85,6 +87,15 @@ const EditTimeTable = ({ route, navigation }) => {
             navigation.goBack();
         }
     };
+
+    const calculateDuration = (start, end) => {
+        const [startHour, startMinute] = start.split('.').map(Number);
+        const [endHour, endMinute] = end.split('.').map(Number);
+        const startTime = startHour * 60 + startMinute;
+        const endTime = endHour * 60 + endMinute;
+        return (endTime - startTime) * 60;
+    };
+
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -101,7 +112,7 @@ const EditTimeTable = ({ route, navigation }) => {
                 </View>
 
                 <View style={styles.timebox}>
-                    {timePeriods.map((timePeriod, index) => (
+                {timePeriods?.map((timePeriod, index) => (
                         <View key={index} style={styles.row}>
                             <Text style={styles.label}>TIME</Text>
                             <View style={styles.timePeriodRow}>

@@ -7,7 +7,7 @@ import RNPickerSelect from "react-native-picker-select";
 
 const CreateTimeTable = ({ navigation }) => {
     const [days, setDays] = useState("DAY1");
-    const [timePeriods, setTimePeriods] = useState([{ start: "8.00", end: "8.30" }]); // Initial time period
+    const [timePeriods, setTimePeriods] = useState([{ start: "8.00", end: "8.30" }]);
     const [tone, setTone] = useState("TONE1");
     const [duration, setDuration] = useState("30s");
 
@@ -29,25 +29,21 @@ const CreateTimeTable = ({ navigation }) => {
         { label: "90s", value: "90s" },
     ];
 
-    // Handle adding a new time period
     const addTimePeriod = () => {
         setTimePeriods([...timePeriods, { start: "", end: "" }]);
     };
 
-    // Handle removing a time period
     const removeTimePeriod = (index) => {
         const newTimePeriods = timePeriods.filter((_, i) => i !== index);
         setTimePeriods(newTimePeriods);
     };
 
-    // Handle time period input changes
     const handleTimeChange = (index, field, value) => {
         const newTimePeriods = [...timePeriods];
         newTimePeriods[index][field] = value;
         setTimePeriods(newTimePeriods);
     };
 
-    // Save new timetable to AsyncStorage
     const saveNewTimeTable = async () => {
         try {
             const newTimeTable = {
@@ -64,24 +60,22 @@ const CreateTimeTable = ({ navigation }) => {
 
             await AsyncStorage.setItem("timeTables", JSON.stringify(timeTables));
 
-            navigation.goBack(); // Navigate back to the previous screen (Home screen)
+            navigation.goBack();
         } catch (error) {
             console.error("Error saving new timetable:", error);
         }
     };
 
-    // Delete timetable from AsyncStorage
     const deleteTimeTable = async () => {
         try {
             const savedTimeTables = await AsyncStorage.getItem("timeTables");
             let timeTables = savedTimeTables ? JSON.parse(savedTimeTables) : [];
 
-            // Assuming each timetable has a unique 'days' field, delete by 'days'
             const updatedTimeTables = timeTables.filter(item => item.days !== days);
             
             await AsyncStorage.setItem("timeTables", JSON.stringify(updatedTimeTables));
 
-            navigation.goBack(); // Navigate back after deletion
+            navigation.goBack();
         } catch (error) {
             console.error("Error deleting timetable:", error);
         }
@@ -101,7 +95,7 @@ const CreateTimeTable = ({ navigation }) => {
                     />
                 </View>
 
-                <view style={styles.timebox}>
+                <View style={styles.timebox}>
                     {timePeriods.map((timePeriod, index) => (
                         <View key={index} style={styles.row}>
                             <Text style={styles.label}>TIME</Text>
@@ -131,7 +125,7 @@ const CreateTimeTable = ({ navigation }) => {
                     <TouchableOpacity style={styles.addButton} onPress={addTimePeriod}>
                         <Text style={styles.buttonText}>+ ADD TIME PERIOD</Text>
                     </TouchableOpacity>
-                </view>
+                </View>
 
                 <View style={styles.row}>
                         <Text style={styles.label}>TONE</Text>
