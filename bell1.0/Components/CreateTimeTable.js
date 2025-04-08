@@ -1,20 +1,25 @@
-import React, { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Platform, StatusBar, TextInput } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Platform, StatusBar, TextInput, Alert } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import Header from "./Header.js";
-import Footer from "./Footer.js";
+import Header from "./Header";
+import Footer from "./Footer";
 import RNPickerSelect from "react-native-picker-select";
 
 const CreateTimeTable = ({ navigation }) => {
-    const [days, setDays] = useState("DAY1");
-    const [timePeriods, setTimePeriods] = useState([{ start: "8.00", end: "8.30" }]);
+    const [days, setDays] = useState([]);
+    const [startTime, setStartTime] = useState("8.00");
+    const [periodDurations, setPeriodDurations] = useState(["30"]);
     const [tone, setTone] = useState("TONE1");
     const [duration, setDuration] = useState("30s");
 
     const daysOptions = [
-        { label: "MON - FRI", value: "DAY1" },
-        { label: "SAT - SUN", value: "DAY2" },
-        { label: "MON - SAT", value: "DAY3" },
+        { label: "Monday", value: 1 },
+        { label: "Tuesday", value: 2 },
+        { label: "Wednesday", value: 3 },
+        { label: "Thursday", value: 4 },
+        { label: "Friday", value: 5 },
+        { label: "Saturday", value: 6 },
+        { label: "Sunday", value: 0 }
     ];
 
     const toneOptions = [
@@ -29,61 +34,86 @@ const CreateTimeTable = ({ navigation }) => {
         { label: "90s", value: "90s" },
     ];
 
-    const addTimePeriod = () => {
-        setTimePeriods([...timePeriods, { start: "", end: "" }]);
+    const addPeriod = () => {
+        setPeriodDurations([...periodDurations, "30"]);
     };
 
-    const removeTimePeriod = (index) => {
-        const newTimePeriods = timePeriods.filter((_, i) => i !== index);
-        setTimePeriods(newTimePeriods);
+    const removePeriod = (index) => {
+        const newDurations = [...periodDurations];
+        newDurations.splice(index, 1);
+        setPeriodDurations(newDurations);
     };
 
-    const handleTimeChange = (index, field, value) => {
-        const newTimePeriods = [...timePeriods];
-        newTimePeriods[index][field] = value;
-        setTimePeriods(newTimePeriods);
+    const handleDurationChange = (index, value) => {
+        const newDurations = [...periodDurations];
+        newDurations[index] = value;
+        setPeriodDurations(newDurations);
+    };
+
+    const calculateSchedule = () => {
+        const [startHour, startMinute] = startTime.split('.').map(Number);
+        let currentHour = startHour;
+        let currentMinute = startMinute || 0;
+        const schedule = [];
+
+        periodDurations.forEach((dur, index) => {
+            const duration = parseInt(dur) || 30;
+            const startTime = new Date();
+            startTime.setHours(currentHour, currentMinute, 0, 0);
+
+            // Calculate end time
+            currentMinute += duration;
+            while (currentMinute >= 60) {
+                currentHour += 1;
+                currentMinute -= 60;
+            }
+
+            const endTime = new Date();
+            endTime.setHours(currentHour, currentMinute, 0, 0);
+
+            schedule.push({
+                name: index === 0 ? "Morning Bell" : 
+                      index === periodDurations.length - 1 ? "Dismissal" : 
+                      `Period ${index}`,
+                start: `${startTime.getHours()}.${startTime.getMinutes().toString().padStart(2, '0')}`,
+                end: `${endTime.getHours()}.${endTime.getMinutes().toString().padStart(2, '0')}`,
+                duration: duration * 60
+            });
+        });
+
+        return schedule;
     };
 
     const saveNewTimeTable = async () => {
         try {
+            if (days.length === 0) {
+                Alert.alert("Error", "Please select at least one day");
+                return;
+            }
+
+            const schedule = calculateSchedule();
             const newTimeTable = {
                 days,
-                timePeriods,
+                schedule,
                 tone,
-                duration,
+                duration
             };
 
             const savedTimeTables = await AsyncStorage.getItem("timeTables");
             let timeTables = savedTimeTables ? JSON.parse(savedTimeTables) : [];
-
             timeTables.push(newTimeTable);
-
             await AsyncStorage.setItem("timeTables", JSON.stringify(timeTables));
-
+            
             navigation.goBack();
         } catch (error) {
             console.error("Error saving new timetable:", error);
-        }
-    };
-
-    const deleteTimeTable = async () => {
-        try {
-            const savedTimeTables = await AsyncStorage.getItem("timeTables");
-            let timeTables = savedTimeTables ? JSON.parse(savedTimeTables) : [];
-
-            const updatedTimeTables = timeTables.filter(item => item.days !== days);
-            
-            await AsyncStorage.setItem("timeTables", JSON.stringify(updatedTimeTables));
-
-            navigation.goBack();
-        } catch (error) {
-            console.error("Error deleting timetable:", error);
+            Alert.alert("Error", "Failed to save timetable. Please try again.");
         }
     };
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <Header screenName="CreateTimeTable" />
+            <Header screenName="Create Time Table" />
             <View style={styles.container}>
                 <View style={styles.row}>
                     <Text style={styles.label}>DAYS</Text>
@@ -92,55 +122,59 @@ const CreateTimeTable = ({ navigation }) => {
                         items={daysOptions}
                         value={days}
                         style={pickerSelectStyles}
+                        placeholder={{ label: "Select days...", value: null }}
+                        multiple={true}
                     />
                 </View>
 
                 <View style={styles.timebox}>
-                    {timePeriods.map((timePeriod, index) => (
-                        <View key={index} style={styles.row}>
-                            <Text style={styles.label}>TIME</Text>
-                            <View style={styles.timePeriodRow}>
-                                <TextInput
-                                    style={styles.timeInput}
-                                    value={timePeriod.start}
-                                    placeholder="Start Time"
-                                    onChangeText={(value) => handleTimeChange(index, "start", value)}
-                                />
-                                <Text style={styles.label}>-</Text>
-                                <TextInput
-                                    style={styles.timeInput}
-                                    value={timePeriod.end}
-                                    placeholder="End Time"
-                                    onChangeText={(value) => handleTimeChange(index, "end", value)}
-                                />
-                                {timePeriods.length > 1 && (
-                                    <TouchableOpacity onPress={() => removeTimePeriod(index)}>
-                                        <Text style={styles.deletePeriodText}>Remove</Text>
-                                    </TouchableOpacity>
-                                )}
-                            </View>
+                    <View style={styles.row}>
+                        <Text style={styles.label}>START TIME</Text>
+                        <TextInput
+                            style={styles.timeInput}
+                            value={startTime}
+                            placeholder="8.00"
+                            onChangeText={setStartTime}
+                        />
+                    </View>
+
+                    <Text style={styles.sectionTitle}>PERIOD DURATIONS (minutes)</Text>
+                    {periodDurations.map((duration, index) => (
+                        <View key={index} style={styles.durationRow}>
+                            <Text style={styles.durationLabel}>Period {index + 1}:</Text>
+                            <TextInput
+                                style={styles.durationInput}
+                                value={duration}
+                                keyboardType="numeric"
+                                onChangeText={(value) => handleDurationChange(index, value)}
+                            />
+                            {periodDurations.length > 1 && (
+                                <TouchableOpacity onPress={() => removePeriod(index)}>
+                                    <Text style={styles.deleteText}>Remove</Text>
+                                </TouchableOpacity>
+                            )}
                         </View>
                     ))}
 
-                    <TouchableOpacity style={styles.addButton} onPress={addTimePeriod}>
-                        <Text style={styles.buttonText}>+ ADD TIME PERIOD</Text>
+                    <TouchableOpacity style={styles.addButton} onPress={addPeriod}>
+                        <Text style={styles.buttonText}>+ ADD PERIOD</Text>
                     </TouchableOpacity>
                 </View>
 
                 <View style={styles.row}>
-                        <Text style={styles.label}>TONE</Text>
-                        <RNPickerSelect
-                            onValueChange={(value) => setTone(value)}
-                            items={toneOptions}
-                            value={tone}
-                            style={pickerSelectStyles}
-                        />
+                    <Text style={styles.label}>TONE</Text>
+                    <RNPickerSelect
+                        onValueChange={setTone}
+                        items={toneOptions}
+                        value={tone}
+                        style={pickerSelectStyles}
+                    />
                 </View>
-                
+
                 <View style={styles.row}>
                     <Text style={styles.label}>DURATION</Text>
                     <RNPickerSelect
-                        onValueChange={(value) => setDuration(value)}
+                        onValueChange={setDuration}
                         items={durationOptions}
                         value={duration}
                         style={pickerSelectStyles}
@@ -148,9 +182,6 @@ const CreateTimeTable = ({ navigation }) => {
                 </View>
 
                 <View style={styles.buttonContainer}>
-                    <TouchableOpacity style={styles.deleteButton} onPress={deleteTimeTable}>
-                        <Text style={styles.buttonText}>DELETE</Text>
-                    </TouchableOpacity>
                     <TouchableOpacity style={styles.saveButton} onPress={saveNewTimeTable}>
                         <Text style={styles.buttonText}>SAVE</Text>
                     </TouchableOpacity>
@@ -195,45 +226,63 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: "bold",
     },
-    timePeriodRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        flex: 1,
-        justifyContent: "space-between",
-    },
     timeInput: {
         backgroundColor: "#C4C4C4",
         borderRadius: 6,
-        minWidth: 80,
+        width: 100,
         textAlign: "center",
-        marginHorizontal: 5,
+        padding: 8,
+    },
+    timebox: {
+        backgroundColor: "#becccc",
+        borderRadius: 15,
+        padding: 10,
+        marginBottom: 20,
+    },
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: "bold",
+        marginVertical: 10,
+        color: "#333",
+    },
+    durationRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: 10,
+        padding: 8,
+        backgroundColor: "#e6e6e6",
+        borderRadius: 6,
+    },
+    durationLabel: {
+        flex: 1,
+        fontSize: 14,
+    },
+    durationInput: {
+        backgroundColor: "#fff",
+        borderRadius: 4,
+        width: 60,
+        textAlign: "center",
+        padding: 6,
+        marginRight: 10,
+    },
+    deleteText: {
+        color: "red",
+        fontWeight: "bold",
     },
     addButton: {
         backgroundColor: "#167573",
         padding: 10,
         borderRadius: 6,
         alignItems: "center",
-        margin: 10,
+        marginTop: 10,
     },
     buttonContainer: {
-        flexDirection: "row",
-        justifyContent: "space-between",
         marginTop: 20,
-    },
-    deleteButton: {
-        backgroundColor: "red",
-        padding: 10,
-        borderRadius: 6,
-        flex: 1,
-        marginRight: 10,
-        alignItems: "center",
     },
     saveButton: {
         backgroundColor: "green",
-        padding: 10,
+        padding: 12,
         borderRadius: 6,
-        flex: 1,
-        marginLeft: 10,
         alignItems: "center",
     },
     buttonText: {
@@ -241,17 +290,6 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: "bold",
     },
-    deletePeriodText: {
-        color: "red",
-        fontWeight: "bold",
-        marginLeft: 10,
-    },
-    timebox: {
-        backgroundColor: "#becccc",
-        borderRadius: 15,
-        padding: 10,
-        marginBottom: 20,
-    }
 });
 
 export default CreateTimeTable;
