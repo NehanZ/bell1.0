@@ -6,6 +6,7 @@ const Footer = () => {
     <View style={{
       height: 20,
       backgroundColor: '#0F6466',
+      marginBottom: 0,
     }} />
   );
 };

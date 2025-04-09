@@ -1,25 +1,23 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Platform, StatusBar, TextInput, Alert } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Platform, StatusBar, TextInput, Alert,  } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Header from "./Header";
 import Footer from "./Footer";
 import RNPickerSelect from "react-native-picker-select";
+import { ScrollView } from "react-native-gesture-handler";
 
 const CreateTimeTable = ({ navigation }) => {
     const [days, setDays] = useState([]);
-    const [startTime, setStartTime] = useState("8.00");
-    const [periodDurations, setPeriodDurations] = useState(["30"]);
+    const [startTime, setStartTime] = useState("8.00"); //Take only start time, after take duration of each period
+    const [periodDurations, setPeriodDurations] = useState(["30"]); //Take only start time, after take duration of each period
     const [tone, setTone] = useState("TONE1");
-    const [duration, setDuration] = useState("30s");
+    const [duration, setDuration] = useState("5");
 
     const daysOptions = [
-        { label: "Monday", value: 1 },
-        { label: "Tuesday", value: 2 },
-        { label: "Wednesday", value: 3 },
-        { label: "Thursday", value: 4 },
-        { label: "Friday", value: 5 },
-        { label: "Saturday", value: 6 },
-        { label: "Sunday", value: 0 }
+        { label: "MON-FRI", value: "1" },
+        { label: "SAT-SUN", value: "2" },
+        { label: "MON-SAT", value: "3" },
+        { label: "ALL DAYS", value: "4" },    
     ];
 
     const toneOptions = [
@@ -29,9 +27,9 @@ const CreateTimeTable = ({ navigation }) => {
     ];
 
     const durationOptions = [
-        { label: "30s", value: "30s" },
-        { label: "60s", value: "60s" },
-        { label: "90s", value: "90s" },
+        { label: "05s", value: "5" },
+        { label: "10s", value: "10" },
+        { label: "15s", value: "15" },
     ];
 
     const addPeriod = () => {
@@ -50,6 +48,8 @@ const CreateTimeTable = ({ navigation }) => {
         setPeriodDurations(newDurations);
     };
 
+    
+
     const calculateSchedule = () => {
         const [startHour, startMinute] = startTime.split('.').map(Number);
         let currentHour = startHour;
@@ -57,7 +57,11 @@ const CreateTimeTable = ({ navigation }) => {
         const schedule = [];
 
         periodDurations.forEach((dur, index) => {
-            const duration = parseInt(dur) || 30;
+            const duration = parseInt(dur) || 30; // Default to 30 minutes (for the school DDI)
+            if (isNaN(duration) || duration <= 0) {
+                Alert.alert("Invalid Duration", "Please enter a valid duration for all periods.");
+                return;
+            }
             const startTime = new Date();
             startTime.setHours(currentHour, currentMinute, 0, 0);
 
@@ -71,6 +75,7 @@ const CreateTimeTable = ({ navigation }) => {
             const endTime = new Date();
             endTime.setHours(currentHour, currentMinute, 0, 0);
 
+            // Name the period
             schedule.push({
                 name: index === 0 ? "Morning Bell" : 
                       index === periodDurations.length - 1 ? "Dismissal" : 
@@ -103,7 +108,7 @@ const CreateTimeTable = ({ navigation }) => {
             let timeTables = savedTimeTables ? JSON.parse(savedTimeTables) : [];
             timeTables.push(newTimeTable);
             await AsyncStorage.setItem("timeTables", JSON.stringify(timeTables));
-            
+            Alert.alert("Success", "Time table saved successfully!");            
             navigation.goBack();
         } catch (error) {
             console.error("Error saving new timetable:", error);
@@ -114,6 +119,7 @@ const CreateTimeTable = ({ navigation }) => {
     return (
         <SafeAreaView style={styles.safeArea}>
             <Header screenName="Create Time Table" />
+            <ScrollView style={{ flex: 1 }}>    
             <View style={styles.container}>
                 <View style={styles.row}>
                     <Text style={styles.label}>DAYS</Text>
@@ -178,6 +184,7 @@ const CreateTimeTable = ({ navigation }) => {
                         items={durationOptions}
                         value={duration}
                         style={pickerSelectStyles}
+                        placeholder={{ label: "Select duration...", value: null }}
                     />
                 </View>
 
@@ -187,8 +194,9 @@ const CreateTimeTable = ({ navigation }) => {
                     </TouchableOpacity>
                 </View>
             </View>
-            <Footer />
+            </ScrollView>
         </SafeAreaView>
+        
     );
 };
 

@@ -5,6 +5,7 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import RNPickerSelect from "react-native-picker-select";
 import Header from "./Header";
 import Footer from "./Footer";
+import { ScrollView } from "react-native-gesture-handler";
 
 const EditTimeTable = () => {
   const navigation = useNavigation();
@@ -15,17 +16,14 @@ const EditTimeTable = () => {
   const [startTime, setStartTime] = useState("8.00");
   const [periodDurations, setPeriodDurations] = useState(["30"]);
   const [tone, setTone] = useState("TONE1");
-  const [duration, setDuration] = useState("30s");
+  const [duration, setDuration] = useState("5s");
 
   const daysOptions = [
-    { label: "Monday", value: 1 },
-    { label: "Tuesday", value: 2 },
-    { label: "Wednesday", value: 3 },
-    { label: "Thursday", value: 4 },
-    { label: "Friday", value: 5 },
-    { label: "Saturday", value: 6 },
-    { label: "Sunday", value: 0 }
-  ];
+    { label: "MON-FRI", value: "1" },
+    { label: "SAT-SUN", value: "2" },
+    { label: "MON-SAT", value: "3" },
+    { label: "ALL DAYS", value: "4" },    
+];
 
   const toneOptions = [
     { label: "TONE 1", value: "TONE1" },
@@ -34,9 +32,9 @@ const EditTimeTable = () => {
   ];
 
   const durationOptions = [
-    { label: "30s", value: "30s" },
-    { label: "60s", value: "60s" },
-    { label: "90s", value: "90s" },
+        { label: "5s", value: "5" },
+        { label: "10s", value: "10" },
+        { label: "15s", value: "15" },
   ];
 
   useEffect(() => {
@@ -48,7 +46,7 @@ const EditTimeTable = () => {
       if (timeTable) {
         setDays(timeTable.days);
         setTone(timeTable.tone || "TONE1");
-        setDuration(timeTable.duration || "30s");
+        setDuration(timeTable.duration || "5");
         
         // Calculate start time from the first period
         if (timeTable.schedule && timeTable.schedule.length > 0) {
@@ -60,7 +58,7 @@ const EditTimeTable = () => {
         // Convert schedule to period durations
         if (timeTable.schedule) {
           const durations = timeTable.schedule.map(period => {
-            return String(Math.round(period.duration / 60)); // Convert seconds to minutes
+            return String(Math.round(period.duration / 60));
           });
           setPeriodDurations(durations);
         }
@@ -138,7 +136,7 @@ const EditTimeTable = () => {
       let timeTables = savedTimeTables ? JSON.parse(savedTimeTables) : [];
       timeTables[index] = updatedTimeTable;
       await AsyncStorage.setItem("timeTables", JSON.stringify(timeTables));
-      
+      Alert.alert("Success", "Time table updated successfully!");
       navigation.goBack();
     } catch (error) {
       console.error("Error saving timetable:", error);
@@ -146,6 +144,7 @@ const EditTimeTable = () => {
     }
   };
 
+  // With Delete Functionality
   const deleteTimeTable = async () => {
     try {
       const savedTimeTables = await AsyncStorage.getItem("timeTables");
@@ -159,9 +158,11 @@ const EditTimeTable = () => {
     }
   }
 
+  // Same as the CeareTimeTable code, but with the addition of the delete button
   return (
     <SafeAreaView style={styles.safeArea}>
       <Header screenName="Edit Time Table" />
+      <ScrollView>
       <View style={styles.container}>
         <View style={styles.row}>
           <Text style={styles.label}>DAYS</Text>
@@ -245,6 +246,7 @@ const EditTimeTable = () => {
         </View>
       </View>
       <Footer />
+      </ScrollView>
     </SafeAreaView>
   );
 };

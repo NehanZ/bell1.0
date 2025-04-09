@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, SafeAreaView, Platform, StatusBar } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { Audio } from 'expo-av';
+import Header from '../Components/Header';
 
 export default function TimeMachine({ route, navigation }) {
-    const { schedule = [], selectedMusic, days = [] } = route.params || {};
+    const { schedule = [], selectedMusic, days = [], bellduration } = route.params || {};
     
     const [sound, setSound] = useState(null);
     const [activeTimeTable, setActiveTimeTable] = useState(true);
@@ -14,7 +15,11 @@ export default function TimeMachine({ route, navigation }) {
     const [timeUntilNextBell, setTimeUntilNextBell] = useState(null);
     const [formattedSchedule, setFormattedSchedule] = useState([]);
     const [isBellRinging, setIsBellRinging] = useState(false);
-    const [bellRingTimeout, setBellRingTimeout] = useState(null);
+    
+    // Using useRef to persist the timeout across renders
+    const bellTimeoutRef = useRef(null);
+    // Using useRef to track sound object
+    const soundRef = useRef(null);
 
     useEffect(() => {
         Notifications.setNotificationHandler({
@@ -34,7 +39,8 @@ export default function TimeMachine({ route, navigation }) {
         const formattedPeriods = schedule.map((period) => {
             const [startHour, startMinute] = period.start.split('.').map(Number);
             const [endHour, endMinute] = period.end.split('.').map(Number);
-            
+
+            // Create a date Object and set its time to Start and End time
             const startTime = new Date(today);
             startTime.setHours(startHour, startMinute || 0, 0, 0);
             
@@ -57,7 +63,7 @@ export default function TimeMachine({ route, navigation }) {
             const now = new Date();
             setCurrentTime(now);
             if (activeTimeTable) checkSchedule(now);
-        }, 1000);
+        }, 1000); // Update every second
 
         return () => clearInterval(interval);
     }, [formattedSchedule, activeTimeTable, isBellRinging]);
@@ -78,6 +84,19 @@ export default function TimeMachine({ route, navigation }) {
             );
         }
     }, [days]);
+
+    // Cleanup function for when component unmounts
+    useEffect(() => {
+        return () => {
+            // Stop bell and clear timeout when component unmounts
+            if (bellTimeoutRef.current) {
+                clearTimeout(bellTimeoutRef.current);
+            }
+            if (soundRef.current) {
+                stopSoundCompletely();
+            }
+        };
+    }, []);
 
     const checkSchedule = (now) => {
         if (!formattedSchedule || formattedSchedule.length === 0) return;
@@ -105,7 +124,7 @@ export default function TimeMachine({ route, navigation }) {
         setNextPeriod(next);
         
         if (current) {
-            setTimeUntilNextBell(Math.floor((current.endTime - compareNow) / 1000));
+            setTimeUntilNextBell(Math.floor((current.endTime - compareNow) / 1000)); 
         } else if (next) {
             setTimeUntilNextBell(Math.floor((next.startTime - compareNow) / 1000));
         } else {
@@ -127,48 +146,57 @@ export default function TimeMachine({ route, navigation }) {
                           period.endTime.getMinutes() * 60;
 
             if (nowTime === startTime) {
-                ringBellForDuration(`${period.name} Started`, period.duration);
+                ringBellForDuration(`${period.name} Started`, bellduration || 5);
                 break;
             }
             
             if (nowTime === endTime) {
-                ringBellForDuration(`${period.name} Ended`, period.duration);
+                ringBellForDuration(`${period.name} Ended`, bellduration || 5);
                 break;
             }
         }
     };
 
-    const ringBellForDuration = async (title, durationSec) => {
+    const ringBellForDuration = async (title, duration = 5) => {
         if (isBellRinging) return;
+    
         setIsBellRinging(true);
-        playBell();
-        showNotification(title, `Bell ringing for ${durationSec} seconds`);
-
-        const timeout = setTimeout(() => {
+        await playBell();
+        showNotification(title, `Bell ringing for ${duration} seconds`);
+    
+        // Store the timeout reference
+        bellTimeoutRef.current = setTimeout(() => {
             stopBell();
-            setIsBellRinging(false);
-        }, durationSec * 1000);
-
-        setBellRingTimeout(timeout);
+        }, duration * 1000);
     };
-
-    const stopBell = async () => {
-        if (sound) {
+    
+    const stopSoundCompletely = async () => {
+        if (soundRef.current) {
             try {
-                await sound.stopAsync();
-                await sound.unloadAsync();
+                await soundRef.current.stopAsync();
+                await soundRef.current.unloadAsync();
+                soundRef.current = null;
                 setSound(null);
             } catch (error) {
-                console.error('Error stopping sound:', error);
+                console.error('Error stopping sound completely:', error);
             }
         }
-        if (bellRingTimeout) {
-            clearTimeout(bellRingTimeout);
-            setBellRingTimeout(null);
+    };
+    
+    const stopBell = async () => {
+        // Clear timeout
+        if (bellTimeoutRef.current) {
+            clearTimeout(bellTimeoutRef.current);
+            bellTimeoutRef.current = null;
         }
+        
+        // Stop and unload sound
+        await stopSoundCompletely();
+        
+        // Update state
         setIsBellRinging(false);
     };
-
+    
     const playBell = async () => {
         try {
             let soundFile;
@@ -179,15 +207,22 @@ export default function TimeMachine({ route, navigation }) {
                 default: soundFile = require('../assets/Tones/Tone1.mp3');
             }
 
-            if (sound) await sound.unloadAsync();
+            // Stop previous sound if any
+            await stopSoundCompletely();
+            
+            // Create and play new sound
             const { sound: newSound } = await Audio.Sound.createAsync(
                 soundFile,
                 { shouldPlay: true, isLooping: true }
             );
+            soundRef.current = newSound;
             setSound(newSound);
+            
+            return true;
         } catch (error) {
             console.error('Error playing sound:', error);
             setIsBellRinging(false);
+            return false;
         }
     };
 
@@ -223,13 +258,14 @@ export default function TimeMachine({ route, navigation }) {
     };
 
     const ringBellManually = () => {
-        ringBellForDuration('Manual Bell', 30);
+        ringBellForDuration('Manual Bell', bellduration || 10);
     };
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>School Bell System</Text>
-            
+        <SafeAreaView style={styles.safeArea}>
+            <Header screenName="Timer" />
+            <ScrollView style={{ flex: 1 }}>
+            <View style={styles.container}>
             <View style={styles.statusContainer}>
                 <Text style={styles.statusText}>
                     Status: {activeTimeTable ? (isBellRinging ? 'Bell Ringing' : 'Active') : 'Inactive'}
@@ -329,10 +365,17 @@ export default function TimeMachine({ route, navigation }) {
                 <Text style={styles.backButtonText}>Back to Home</Text>
             </TouchableOpacity>
         </View>
+        </ScrollView>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
+    safeArea: {
+        flex: 1,
+        backgroundColor: "#fff",
+        paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+        },
     container: {
         flex: 1,
         padding: 15,

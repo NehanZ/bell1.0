@@ -9,15 +9,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const HomeScreen = ({ navigation }) => {
   const [timeTables, setTimeTables] = React.useState([]);
 
-  // Add a focus listener to reload data when returning to this screen
+  //focus listener to reload data when returning to this screen
   React.useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       loadTimeTables();
     });
 
-    return unsubscribe;
+    return unsubscribe; // cleanup function to remove the listener
   }, [navigation]);
 
+  //Load time tables from AsyncStorage
   const loadTimeTables = async () => {
     try {
       const storedTimeTables = await AsyncStorage.getItem('timeTables');
@@ -33,27 +34,24 @@ const HomeScreen = ({ navigation }) => {
     loadTimeTables();
   }, []);
 
+  //To Edit the Time Table)
   const handleEdit = (index) => {
     navigation.navigate('EditTimeTable', { index });
   };
 
+  //To Run the Time Table
   const handleRun = (index) => {
     const item = timeTables[index];
     
-    // Get current date to set start times relative to now
     const now = new Date();
     const baseHour = 8; // Default start at 8 AM
-    
-    // Convert timePeriods to schedule format if needed
+
     let schedule;
     
     if (item.schedule && item.schedule.length > 0) {
-      // Use existing schedule if available
       schedule = item.schedule;
     } else if (item.timePeriods && item.timePeriods.length > 0) {
-      // Convert timePeriods to schedule format with proper period names
       schedule = item.timePeriods.map((period, idx) => {
-        // Parse times from format like "8.30" to hours and minutes
         const [startHour, startMinute] = period.start.split('.').map(Number);
         const [endHour, endMinute] = period.end.split('.').map(Number);
         
@@ -62,7 +60,6 @@ const HomeScreen = ({ navigation }) => {
         const endTotalMinutes = endHour * 60 + (endMinute || 0);
         const durationSeconds = (endTotalMinutes - startTotalMinutes) * 60;
         
-        // Set period names based on typical school schedule
         let periodName;
         if (idx === 0) periodName = "Morning Bell";
         else if (idx === item.timePeriods.length - 1) periodName = "Dismissal";
@@ -81,29 +78,32 @@ const HomeScreen = ({ navigation }) => {
     // Convert day format for TimeMachine component
     let dayNumbers = [];
     switch(item.days) {
-      case 'DAY1': // MON - FRI
+      case '1':
         dayNumbers = [1, 2, 3, 4, 5];
         break;
-      case 'DAY2': // SAT - SUN
+      case '2':
         dayNumbers = [6, 0];
         break;
-      case 'DAY3': // MON - SAT
+      case '3':
         dayNumbers = [1, 2, 3, 4, 5, 6];
         break;
       default:
-        dayNumbers = [0, 1, 2, 3, 4, 5, 6]; // All days
+        dayNumbers = [0, 1, 2, 3, 4, 5, 6];
     }
 
     navigation.navigate('TimeMachine', {
       schedule: schedule,
       selectedMusic: item.tone,
       days: dayNumbers,
+      bellduration: item.duration || 5,
     });
+    console.log(timeTables[index].duration);
   };
+  
 
-  const handleCreateNew = () => {
-    navigation.navigate('CreateTimeTable');
-  };
+  // const handleCreateNew = () => {
+  //   navigation.navigate('CreateTimeTable');
+  // };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: 'white' }}>
@@ -111,7 +111,7 @@ const HomeScreen = ({ navigation }) => {
 
       <FlatList
         data={timeTables}
-        keyExtractor={(item, index) => index.toString()}
+        keyExtractor={(item, index) => index.toString()} // key should be a string
         renderItem={({ item, index }) => (
           <View
             style={{
@@ -128,10 +128,13 @@ const HomeScreen = ({ navigation }) => {
               <Text style={{ fontSize: 16, fontWeight: 'bold', color: 'white' }}>
                 Schedule {index + 1}
               </Text>
+
+              {/* if item.days true text part will be rendered*/}
               {item.days && (
                 <Text style={{ fontSize: 12, color: 'white', marginTop: 4 }}>
-                  {item.days === 'DAY1' ? 'MON-FRI' : 
-                   item.days === 'DAY2' ? 'SAT-SUN' : 'MON-SAT'}
+                  {item.days === '1' ? 'MON-FRI' : 
+                   item.days === '2' ? 'SAT-SUN' :
+                   item.days === '3' ? 'MON-SAT': 'ALL DAYS'}
                 </Text>
               )}
               {item.timePeriods && item.timePeriods.length > 0 && (
@@ -163,25 +166,6 @@ const HomeScreen = ({ navigation }) => {
           </View>
         }
       />
-
-      {/* Add a button to create new time table */}
-      <TouchableOpacity
-        style={{
-          position: 'absolute',
-          bottom: 70, // Position above Footer
-          right: 20,
-          backgroundColor: '#167573',
-          width: 60,
-          height: 60,
-          borderRadius: 30,
-          justifyContent: 'center',
-          alignItems: 'center',
-          elevation: 5,
-        }}
-        onPress={handleCreateNew}
-      >
-        <Ionicons name="add" size={30} color="white" />
-      </TouchableOpacity>
 
       <Footer />
     </SafeAreaView>
